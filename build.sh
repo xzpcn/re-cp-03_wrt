@@ -516,6 +516,36 @@ remove_uhttpd_dependency() {
     fi
 }
 
+# 可选：按 compilecfg 里的 FIRMWARE_RENAME_FROM/FIRMWARE_RENAME_TO 重命名固件文件名前缀。
+# 未配置这两个键的机型保持上游原始命名不变。
+apply_firmware_rename() {
+    local firmware_dir=$1
+    local rename_from
+    local rename_to
+    local path
+    local name
+    local new_name
+
+    rename_from=$(read_ini_by_key "FIRMWARE_RENAME_FROM")
+    rename_to=$(read_ini_by_key "FIRMWARE_RENAME_TO")
+
+    if [[ -z "$rename_from" || -z "$rename_to" ]]; then
+        return 0
+    fi
+
+    for path in "$firmware_dir"/*; do
+        [[ -f "$path" ]] || continue
+        name=$(basename "$path")
+        case "$name" in
+            "$rename_from"*)
+                new_name="${rename_to}${name#"$rename_from"}"
+                mv -f "$path" "$firmware_dir/$new_name"
+                echo "Renamed firmware artifact: $name -> $new_name"
+                ;;
+        esac
+    done
+}
+
 if [[ $Build_Mod == "container" ]]; then
     run_container_build ""
     exit 0
@@ -629,6 +659,8 @@ find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*.im
 \rm -f "$FIRMWARE_DIR"/*-preloader.bin 2>/dev/null
 \rm -f "$FIRMWARE_DIR"/*-bl31-uboot.fip 2>/dev/null
 \rm -f "$FIRMWARE_DIR"/*-gpt.bin 2>/dev/null
+
+apply_firmware_rename "$FIRMWARE_DIR"
 
 if [[ "$Dev" == ophub_bdy_g98_* ]]; then
     bash "$BASE_PATH/recipes/bdy_g98/kernel/export.sh" "$BASE_PATH/../$BUILD_DIR" \
