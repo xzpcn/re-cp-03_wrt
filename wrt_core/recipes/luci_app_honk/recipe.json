@@ -23,7 +23,7 @@
     "importPackagesRegistry": {
       "luci-app-honk": {
         "gitUrl": "https://github.com/QiuSimons/luci-app-daeuniverse.git",
-        "commit": "91104d383a3a3d29fa17569508dec252af2674da"
+        "commit": "cdfa15acd725793ac1287003c8e2494dd8ccb530",
         "sparseRoot": null
       },
       "vmlinux-btf": {
