@@ -20,6 +20,7 @@ on:
           - lk_mediatek_immwrt
           - lk_mediatek_immwrt_mini
           - lk_mediatek_immwrt_docker_only
+          - lk_mediatek_immwrt_k6.18
           - lk_mt798x_7986_rebase
           - lk_mt798x_7986_rebase_docker_only
           - lk_mt798x_7986_k6.6
