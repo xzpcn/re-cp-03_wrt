@@ -1,0 +1,85 @@
+diff --git a/wrt_core/recipes/luci_app_honk/prepare_honk.sh b/wrt_core/recipes/luci_app_honk/prepare_honk.sh
+--- a/wrt_core/recipes/luci_app_honk/prepare_honk.sh
++++ b/wrt_core/recipes/luci_app_honk/prepare_honk.sh
+@@ -30,16 +30,76 @@
+ printf 'luci_app_honk: Honk %s requires Zig %s and bpf-linker %s\n' \
+     "$HONK_SRC_VERSION" "$ZIG_VERSION" "$BPF_LINKER_VERSION"
+ 
+-if [ ! -x "$TOOL_BIN/zig" ] || [ "$("$TOOL_BIN/zig" version 2>/dev/null || true)" != "$ZIG_VERSION" ]; then
+-    ZIG_ARCHIVE="$TOOLCHAIN_ROOT/zig-${ZIG_VERSION}-x86_64-linux.tar.xz"
+-    ZIG_URL="https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+-    curl -fsSL --retry 3 "$ZIG_URL" -o "$ZIG_ARCHIVE" || die "failed to download Zig $ZIG_VERSION"
+-    ZIG_DIR="$TOOLCHAIN_ROOT/zig-${ZIG_VERSION}"
++# honk pins ZIG_VERSION=latest (Zig master). The download/<ver>/ layout only
++# exists for released versions, so a nightly has to be resolved through the
++# official index. HONK_ZIG_VERSION overrides the pin when a fixed Zig is needed.
++ZIG_VERSION="${HONK_ZIG_VERSION:-$ZIG_VERSION}"
++
++case "$ZIG_VERSION" in
++    latest)
++        ZIG_INDEX="$TOOLCHAIN_ROOT/zig-index.json"
++        curl -fsSL --retry 3 "https://ziglang.org/download/index.json" -o "$ZIG_INDEX" \
++            || die "failed to fetch the Zig download index"
++        ZIG_INSTALL_VERSION="$(awk '
++            /^[[:space:]]*"master"[[:space:]]*:[[:space:]]*\{/ { inb = 1 }
++            inb && /^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"/ {
++                line = $0
++                sub(/.*"version"[[:space:]]*:[[:space:]]*"/, "", line)
++                sub(/".*/, "", line)
++                print line
++                exit
++            }' "$ZIG_INDEX")"
++        [ -n "$ZIG_INSTALL_VERSION" ] || die "could not resolve the Zig master version from the download index"
++        ZIG_TARBALL="$(awk '
++            /^[[:space:]]*"x86_64-linux"[[:space:]]*:[[:space:]]*\{/ { inb = 1; next }
++            inb && /"tarball"[[:space:]]*:/ {
++                line = $0
++                sub(/.*"tarball"[[:space:]]*:[[:space:]]*"/, "", line)
++                sub(/".*/, "", line)
++                print line
++                exit
++            }' "$ZIG_INDEX")"
++        ZIG_SHA256="$(awk '
++            /^[[:space:]]*"x86_64-linux"[[:space:]]*:[[:space:]]*\{/ { inb = 1; next }
++            inb && /"shasum"[[:space:]]*:/ {
++                line = $0
++                sub(/.*"shasum"[[:space:]]*:[[:space:]]*"/, "", line)
++                sub(/".*/, "", line)
++                print line
++                exit
++            }' "$ZIG_INDEX")"
++        [ -n "$ZIG_TARBALL" ] || die "could not resolve the Zig master x86_64-linux tarball from the download index"
++        ;;
++    *-dev.*)
++        ZIG_INSTALL_VERSION="$ZIG_VERSION"
++        ZIG_TARBALL="https://ziglang.org/builds/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
++        ZIG_SHA256=""
++        ;;
++    *)
++        ZIG_INSTALL_VERSION="$ZIG_VERSION"
++        ZIG_TARBALL="https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
++        ZIG_SHA256=""
++        ;;
++esac
++
++printf 'luci_app_honk: using Zig %s (%s)\n' "$ZIG_INSTALL_VERSION" "$ZIG_TARBALL"
++
++if [ ! -x "$TOOL_BIN/zig" ] || [ "$("$TOOL_BIN/zig" version 2>/dev/null || true)" != "$ZIG_INSTALL_VERSION" ]; then
++    ZIG_ARCHIVE="$TOOLCHAIN_ROOT/zig-${ZIG_INSTALL_VERSION}-x86_64-linux.tar.xz"
++    curl -fsSL --retry 3 "$ZIG_TARBALL" -o "$ZIG_ARCHIVE" \
++        || die "failed to download Zig $ZIG_INSTALL_VERSION from $ZIG_TARBALL"
++    if [ -n "$ZIG_SHA256" ]; then
++        echo "$ZIG_SHA256  $ZIG_ARCHIVE" | sha256sum -c - || die "Zig checksum verification failed"
++    fi
++    ZIG_DIR="$TOOLCHAIN_ROOT/zig-${ZIG_INSTALL_VERSION}"
+     rm -rf "$ZIG_DIR"
+     mkdir -p "$ZIG_DIR"
+     tar -xJf "$ZIG_ARCHIVE" -C "$ZIG_DIR" --strip-components=1
+     ln -sfn "$ZIG_DIR/zig" "$TOOL_BIN/zig"
+ fi
++"$TOOL_BIN/zig" version | grep -qx "$ZIG_INSTALL_VERSION" \
++    || die "Zig $ZIG_INSTALL_VERSION is not available from $TOOL_BIN"
++
+ 
+ # Rustup is provisioned by the build container; make its cargo bin available to
+ # the upstream script and build process without relying on a parent-shell PATH.
