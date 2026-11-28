@@ -1,7 +1,7 @@
 {
   "$schema": "../recipe.schema.json",
   "name": "luci_app_honk",
-  "description": "导入 QiuSimons 的 honk eBPF 透明代理与 luci-app-honk 控制面板",
+  "description": "导入 QiuSimons 的 honk eBPF 透明代理与 与 luci-app-daeuniverse 控制面板（仅 honk 核心",
   "enabled": false,
   "phase": "pre_defconfig",
   "depends": [],
@@ -22,8 +22,9 @@
     "removeFeeds": [],
     "importPackagesRegistry": {
       "luci-app-honk": {
-        "gitUrl": "https://github.com/QiuSimons/luci-app-honk.git",
-        "branch": "master",
+        "gitUrl": "https://github.com/QiuSimons/luci-app-daeuniverse.git",
+        #"branch": "master",
+        "commit": "91104d383a3a3d29fa17569508dec252af2674da",
         "sparseRoot": null
       },
       "vmlinux-btf": {
@@ -40,7 +41,7 @@
       },
       {
         "source": "luci-app-honk",
-        "path": "luci-app-honk"
+        "path": "luci-app-daeuniverse"
       },
       {
         "source": "vmlinux-btf",
